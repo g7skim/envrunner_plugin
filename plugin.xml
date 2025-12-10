@@ -1,0 +1,16 @@
+<idea-plugin>
+    <id>com.envrunner.plugin</id>
+    <name>Playwright Env Runner</name>
+    <version>1.0.0</version>
+    <vendor email="your@mail.com">Evgenii</vendor>
+
+    <idea-version since-build="243" until-build="999.*"/>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="PW Runner"
+                    anchor="right"
+                    factoryClass="com.envrunner.EnvToolWindowFactory"/>
+    </extensions>
+</idea-plugin>
