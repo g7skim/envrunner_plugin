@@ -23,6 +23,8 @@ import javax.swing.DefaultComboBoxModel
 import javax.swing.event.PopupMenuListener
 import java.awt.event.ItemEvent
 import javax.swing.border.EmptyBorder
+import java.awt.event.MouseAdapter
+import java.awt.event.MouseEvent
 import java.nio.file.Files
 import java.nio.file.Paths
 
@@ -52,7 +54,15 @@ class EnvToolWindowFactory : ToolWindowFactory {
         val canaryField = JBTextField("")
         val regressionFFsField = JBTextField("{}")
 
-        val projects = arrayOf("chrome", "chromium", "firefox", "edge", "mobile-chromium")
+        val projects = arrayOf(
+            "chrome",
+            "chromium",
+            "firefox",
+            "edge",
+            "mobile-chromium",
+            "bs-android-chrome",
+            "bs-ios-safari"
+        )
         val projectDropdown = ComboBox(projects)
 
         val timeoutField = JBTextField("280000")
@@ -103,6 +113,25 @@ class EnvToolWindowFactory : ToolWindowFactory {
         formPanel.add(row(paddedLabel("Test grep", "Filter tests by name. Separate with | if there are multiple tests"), grepField))
 
         formPanel.add(row(paddedLabel("Browser", "Playwright browser name to run"), projectDropdown))
+
+        // BrowserStack credentials (conditionally visible)
+        val bsUsernameField = JBTextField("")
+        val bsAccessKeyField = JBPasswordField()
+        // Mask access key by default and reveal on hover
+        bsAccessKeyField.echoChar = '*'
+        bsAccessKeyField.toolTipText = "Hover to reveal"
+        bsAccessKeyField.addMouseListener(object : MouseAdapter() {
+            override fun mouseEntered(e: MouseEvent) {
+                bsAccessKeyField.echoChar = 0.toChar()
+            }
+            override fun mouseExited(e: MouseEvent) {
+                bsAccessKeyField.echoChar = '*'
+            }
+        })
+        val bsUserRow = row(paddedLabel("BROWSERSTACK_USERNAME", "Your BrowserStack username"), bsUsernameField)
+        val bsKeyRow = row(paddedLabel("BROWSERSTACK_ACCESS_KEY", "Your BrowserStack access key"), bsAccessKeyField)
+        formPanel.add(bsUserRow)
+        formPanel.add(bsKeyRow)
 
         formPanel.add(row(paddedLabel("Timeout", "Playwright test timeout in ms (> 0)"), timeoutField))
 
@@ -170,11 +199,22 @@ class EnvToolWindowFactory : ToolWindowFactory {
             }
             formPanel.revalidate(); formPanel.repaint()
         }
+        fun refreshBsVisibility() {
+            val value = projectDropdown.selectedItem?.toString()
+            val isBs = value == "bs-android-chrome" || value == "bs-ios-safari"
+            bsUserRow.isVisible = isBs
+            bsKeyRow.isVisible = isBs
+            formPanel.revalidate(); formPanel.repaint()
+        }
         platformDropdown.addItemListener { ev ->
             if (ev.stateChange == ItemEvent.SELECTED) refreshEnvControlsVisibility()
         }
         // Initialize
         refreshEnvControlsVisibility()
+        projectDropdown.addItemListener { ev ->
+            if (ev.stateChange == ItemEvent.SELECTED) refreshBsVisibility()
+        }
+        refreshBsVisibility()
 
         var currentHandler: OSProcessHandler? = null
 
@@ -213,10 +253,12 @@ class EnvToolWindowFactory : ToolWindowFactory {
                 repeat,
                 workers,
                 modeDropdown.selectedItem?.toString() ?: "",
-                "PLAYWRIGHT"
+                "PLAYWRIGHT",
+                bsUsernameField.text.trim(),
+                String(bsAccessKeyField.password).trim()
             )
             // Persist current selections
-            saveState(project, platformDropdown, e2eEnvDropdown, usePreUrl, mockServer, grepField, projectDropdown, timeoutField, repeatField, workersField, modeDropdown, workDirField, canaryField, regressionFFsField)
+            saveState(project, platformDropdown, e2eEnvDropdown, usePreUrl, mockServer, grepField, projectDropdown, timeoutField, repeatField, workersField, modeDropdown, workDirField, canaryField, regressionFFsField, bsUsernameField, bsAccessKeyField)
 
             // Clear logs and run
             logArea.text = ""
@@ -415,9 +457,10 @@ class EnvToolWindowFactory : ToolWindowFactory {
         toolWindow.contentManager.addContent(content)
 
         // Load last saved values
-        loadState(project, platformDropdown, e2eEnvDropdown, usePreUrl, mockServer, grepField, projectDropdown, timeoutField, repeatField, workersField, modeDropdown, workDirField, canaryField, regressionFFsField)
+        loadState(project, platformDropdown, e2eEnvDropdown, usePreUrl, mockServer, grepField, projectDropdown, timeoutField, repeatField, workersField, modeDropdown, workDirField, canaryField, regressionFFsField, bsUsernameField, bsAccessKeyField)
         // After loading, reapply PROD logic (in case restored selection is PROD)
         refreshEnvControlsVisibility()
+        refreshBsVisibility()
     }
 
     // Helpers
@@ -488,7 +531,9 @@ class EnvToolWindowFactory : ToolWindowFactory {
         modeDropdown: ComboBox<String>,
         workDirField: JBTextField,
         canaryField: JBTextField,
-        regressionFFsField: JBTextField
+        regressionFFsField: JBTextField,
+        bsUsernameField: JBTextField,
+        bsAccessKeyField: JBPasswordField
     ) {
         val props = PropertiesComponent.getInstance(project)
         props.setValue(KEY_PLATFORM, platformDropdown.selectedItem?.toString(), "")
@@ -504,6 +549,8 @@ class EnvToolWindowFactory : ToolWindowFactory {
         props.setValue(KEY_WORKDIR, workDirField.text, "packages/automation-testing")
         props.setValue(KEY_CANARY, canaryField.text, "")
         props.setValue(KEY_FFS, regressionFFsField.text, "")
+        props.setValue(KEY_BS_USER, bsUsernameField.text, "")
+        props.setValue(KEY_BS_KEY, String(bsAccessKeyField.password), "")
     }
 
     private fun loadState(
@@ -520,7 +567,9 @@ class EnvToolWindowFactory : ToolWindowFactory {
         modeDropdown: ComboBox<String>,
         workDirField: JBTextField,
         canaryField: JBTextField,
-        regressionFFsField: JBTextField
+        regressionFFsField: JBTextField,
+        bsUsernameField: JBTextField,
+        bsAccessKeyField: JBPasswordField
     ) {
         val props = PropertiesComponent.getInstance(project)
         fun setIfPresent(combo: ComboBox<String>, value: String?) {
@@ -539,6 +588,8 @@ class EnvToolWindowFactory : ToolWindowFactory {
         workDirField.text = props.getValue(KEY_WORKDIR, workDirField.text)
         canaryField.text = props.getValue(KEY_CANARY, canaryField.text)
         regressionFFsField.text = props.getValue(KEY_FFS, regressionFFsField.text)
+        bsUsernameField.text = props.getValue(KEY_BS_USER, bsUsernameField.text)
+        bsAccessKeyField.text = props.getValue(KEY_BS_KEY, String(bsAccessKeyField.password))
     }
 
     companion object Keys {
@@ -555,6 +606,8 @@ class EnvToolWindowFactory : ToolWindowFactory {
         private const val KEY_WORKDIR = "envrunner.workdir"
         private const val KEY_CANARY = "envrunner.canary"
         private const val KEY_FFS = "envrunner.regressionFFs"
+        private const val KEY_BS_USER = "envrunner.bsUsername"
+        private const val KEY_BS_KEY = "envrunner.bsAccessKey"
     }
 
     private fun isValidWorkers(value: String): Boolean {

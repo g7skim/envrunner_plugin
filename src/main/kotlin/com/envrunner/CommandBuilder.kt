@@ -21,7 +21,9 @@ object CommandBuilder {
         repeat: String,
         workers: String,
         mode: String,
-        runner: String
+        runner: String,
+        bsUsername: String = "",
+        bsAccessKey: String = ""
     ) : String {
 
         // Apply conditional rules:
@@ -74,6 +76,30 @@ object CommandBuilder {
             val timeoutArg = "--testTimeout=$timeout"
             val inBand = "--runInBand"
             listOf("yarn test", grepArg, timeoutArg, inBand).filter { it.isNotBlank() }.joinToString(" ")
+        }
+
+        val isBsAndroid = project == "bs-android-chrome"
+        val isBsIos = project == "bs-ios-safari"
+
+        if (isBsAndroid || isBsIos) {
+            val device = if (isBsIos) "ios" else "android"
+            val bsEnv = listOf(
+                "RUN_ID=$(uuidgen)",
+                "LOCAL_RUN=true",
+                "BS_DEVICE=$device",
+                "PROJECT=${shQuote(project)}"
+            ).joinToString(" ")
+
+            val creds = listOf(
+                if (bsUsername.isNotBlank()) "BROWSERSTACK_USERNAME=${shQuote(bsUsername)}" else "",
+                if (bsAccessKey.isNotBlank()) "BROWSERSTACK_ACCESS_KEY=${shQuote(bsAccessKey)}" else ""
+            ).filter { it.isNotBlank() }.joinToString(" ")
+
+            val prefix = "yarn kill-browser-stack-port &&"
+            return listOf(prefix, bsEnv, creds, env, base)
+                .filter { it.isNotBlank() }
+                .joinToString(" ")
+                .trim()
         }
 
         return "$env $base".trim()

@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.envrunner"
-version = "1.4.4"
+version = "1.5.0"
 
 repositories {
     mavenCentral()
@@ -13,14 +13,15 @@ repositories {
 
 dependencies {
     intellijPlatform {
-        create("IC", "2025.2")
+        local("/Users/evgenii.truuts/Applications/WebStorm.app")
+
         instrumentationTools()
     }
 }
 
 tasks {
     patchPluginXml {
-        sinceBuild.set("252")
+        sinceBuild.set("243")
     }
 
     // Disable generation of searchable options (not needed for this plugin and

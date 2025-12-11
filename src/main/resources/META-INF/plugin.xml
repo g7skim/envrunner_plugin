@@ -2,7 +2,7 @@
     <id>com.rcvtestrunner.plugin</id>
     <name>RCV Test Runner</name>
     <vendor email="evgenii.truuts@ringcentral.com">Eugene Truuts</vendor>
-    <version>1.4.4</version>
+    <version>1.5.0</version>
 
     <idea-version since-build="243" until-build="999.*"/>
     <description><![CDATA[
@@ -14,11 +14,9 @@
     ]]></description>
 
     <change-notes><![CDATA[
-        <h3>1.0.0</h3>
+        <h3>1.5.0</h3>
         <ul>
-            <li>Initial release</li>
-            <li>Tool Window: PW Runner</li>
-            <li>Full Playwright command builder</li>
+            <li>Mobile test support added</li>
         </ul>
     ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>
